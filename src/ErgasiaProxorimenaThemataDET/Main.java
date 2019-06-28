@@ -9,6 +9,7 @@ public class Main {
     private static Node depot = new Node();
     private static ArrayList <Node> allNodes = new ArrayList<>();
     private static ArrayList <Node> customers = new ArrayList<>();
+    private static Solution bestSolutionThroughLocalSearch;
     private static Solution bestSolutionThroughTabuSearch;
     private static Random ran = new Random();
 
@@ -20,104 +21,27 @@ public class Main {
         // erwthma 1
         //-----------
 
-        Main.CreateAllNodesAndCustomerLists(200);
-
-        distanceMatrix = new double[allNodes.size()][allNodes.size()];
-        distanceTimeMatrix = new double[allNodes.size()][allNodes.size()];
-
-        for(int i = 0; i < allNodes.size(); i++) {
-            for(int j = 0; j < allNodes.size(); j++) {
-                distanceMatrix[i][j] = Edge.distanceBetweenTwoNodes(allNodes.get(i), allNodes.get(j));
-                distanceTimeMatrix[i][j] = Edge.timeDistanceBetweenTwoNodes(distanceMatrix[i][j]);
-            }
-        }
-
-//        test reasons
-//        for(int i = 0; i < allNodes.size(); i++) {
-//            for(int j = 0; j < allNodes.size(); j++) {
-//                System.out.print(distanceMatrix[i][j] + "\t");
-//            }
-//            System.out.println();
-//        }
-//        for(int i = 0; i < allNodes.size(); i++) {
-//            for(int j = 0; j < allNodes.size(); j++) {
-//                System.out.print(distanceTimeMatrix[i][j] + "\t");
-//            }
-//            System.out.println();
-//        }
+        CreateAllNodesAndCustomerLists(200);
+        InitializeDistanceTables();
+        Solution solution = new Solution();
 
         //-----------
         // erwthma 2
         //-----------
 
-        //sort customers based on their load, from higher load to smaller one.
-
-        ArrayList<Route> routes = new ArrayList<>();
-
-        var customersLoad = new ArrayList<>(customers);
-        Collections.sort(customersLoad, new Comparator<Node>() {
-            @Override
-            public int compare(Node customerALoad, Node customerBLoad)
-            {
-                if (customerALoad.demand > customerBLoad.demand)
-                    return -1;
-                if (customerALoad.demand < customerBLoad.demand)
-                    return 1;
-                return 0;
-            }
-        });
-
-//        test of sorted array
-//        System.out.println("Sorted:");
-//        for (Node node : customersLoad) {
-//            System.out.println(node);
-//        }
-
-        RouteBestFit(routes, customersLoad);
-
-//        // for test reasons
-//        for (Route route : routes)
-//        {
-//            System.out.println(route.nodes);
-//            System.out.println(route.routeTotalTime);
-//            System.out.println(route.load);
-//        }
+        Question2(solution);
 
         //-----------
         // erwthma 3
         //-----------
 
-        Solution solution = new Solution();
-
-        ApplyNearestNeighborMethod(solution);
-        System.out.println(String.format("Nearest Neighbor Method total km cost: %.3f", solution.cost));
-        System.out.println(String.format("Nearest Neighbor Method total time cost (hours): %.3f", solution.timeCost/100));
-        System.out.println(String.format("Nearest Neighbor Method total routes: %d", solution.routes.size()));
-
-//        // for test reasons
-//        System.out.println("ROUTES");
-//        for (Route route : solution.routes)
-//        {
-//            System.out.println(route.nodes);
-//            System.out.println(route.routeTotalTime);
-//            System.out.println(route.load);
-//        }
+        Question3(solution);
 
         //-----------
         // erwthma 4
         //-----------
 
-        TabuSearch(solution);
-        System.out.println(String.format("Tabu search total km cost: %.3f", solution.cost));
-
-//        // for test reasons
-//        System.out.println("ROUTES");
-//        for (Route route : solution.routes)
-//        {
-//            System.out.println(route.nodes);
-//            System.out.println(route.routeTotalTime);
-//            System.out.println(route.load);
-//        }
+        Question4(solution);
     }
 
     private static void CreateAllNodesAndCustomerLists(int numberOfCustomers) {
@@ -152,61 +76,99 @@ public class Main {
         }
     }
 
-    private static void ApplyNearestNeighborMethod(Solution solution) {
+    private static void InitializeDistanceTables() {
 
-        ArrayList<Route> routeList = solution.routes;
+        distanceMatrix = new double[allNodes.size()][allNodes.size()];
+        distanceTimeMatrix = new double[allNodes.size()][allNodes.size()];
 
-        //Q - How many insertions? A - Equal to the number of customers! Thus for i = 0 -> customers.size()
-        for (int insertions = 0; insertions < customers.size(); /* the insertions will be updated in the for loop */)
-        {
-            //A. Insertion Identification
-            CustomerInsertion bestInsertion = new CustomerInsertion();
-            bestInsertion.cost = Double.MAX_VALUE;
-            bestInsertion.timeCost = Constants.truckMaximumAwayTime;
-            Route lastRoute = GetLastRoute(routeList);
-            if (lastRoute != null)
-            {
-                IdentifyBestInsertion_NN(bestInsertion, lastRoute);
-            }
-            //B. Insertion Application
-            //Feasible insertion was identified
-            if ( bestInsertion.cost < Double.MAX_VALUE && bestInsertion.timeCost < Constants.truckMaximumAwayTime)
-            {
-                ApplyCustomerInsertion(bestInsertion, solution);
-                insertions++;
-            }
-            //C. If no insertion was feasible
-            else
-            {
-                //C1. There is a customer with demand larger than capacity -> Infeasibility or time added exceeds max time
-                if (lastRoute != null && lastRoute.nodes.size() == 2)
-                {
-                    break;
-                }
-                else
-                {
-                    CreateAndPushAnEmptyRouteInTheSolution(solution);
-                }
+        for(int i = 0; i < allNodes.size(); i++) {
+            for(int j = 0; j < allNodes.size(); j++) {
+                distanceMatrix[i][j] = Edge.distanceBetweenTwoNodes(allNodes.get(i), allNodes.get(j));
+                distanceTimeMatrix[i][j] = Edge.timeDistanceBetweenTwoNodes(distanceMatrix[i][j]);
             }
         }
+
+//        test reasons
+//        for(int i = 0; i < allNodes.size(); i++) {
+//            for(int j = 0; j < allNodes.size(); j++) {
+//                System.out.print(distanceMatrix[i][j] + "\t");
+//            }
+//            System.out.println();
+//        }
+//        for(int i = 0; i < allNodes.size(); i++) {
+//            for(int j = 0; j < allNodes.size(); j++) {
+//                System.out.print(distanceTimeMatrix[i][j] + "\t");
+//            }
+//            System.out.println();
+//        }
     }
 
-    private static void RouteBestFit(ArrayList<Route> routes, ArrayList<Node> customers) {
-        for (Node customer : customers)
+    // ---------
+    // Erwthma 2
+    // ---------
+
+    private static void Question2(Solution solution) {
+        //sort customers based on their load, from higher load to smaller one.
+
+        var customersLoad = SortCustomersByLoad();
+        RouteBestFit(solution.routes, customersLoad);
+
+        for (Route route: solution.routes) {
+            solution.cost += route.cost;
+            solution.timeCost += route.routeTotalTime;
+        }
+
+        System.out.println(String.format("Question 2 - same as Bin Packing algorithm total km cost: %.3f", solution.cost));
+        System.out.println(String.format("Question 2 - same as Bin packing algorithm total routes: %d", solution.routes.size()));
+
+//        // for test reasons
+//        for (Route route : solution.routes)
+//        {
+//            System.out.println(route.nodes);
+//            System.out.println(route.routeTotalTime);
+//            System.out.println(route.load);
+//        }
+    }
+
+    private static ArrayList SortCustomersByLoad() {
+        var sortedList = new ArrayList<>(customers);
+        Collections.sort(sortedList, new Comparator<Node>() {
+            @Override
+            public int compare(Node customerALoad, Node customerBLoad)
+            {
+                if (customerALoad.demand > customerBLoad.demand)
+                    return -1;
+                if (customerALoad.demand < customerBLoad.demand)
+                    return 1;
+                return 0;
+            }
+        });
+
+//        //test of sorted array
+//        System.out.println("Sorted:");
+//        for (Node node : sortedList) {
+//            System.out.println(node + " " + node.demand);
+//        }
+
+        return sortedList;
+    }
+
+    private static void RouteBestFit(ArrayList<Route> routes, ArrayList<Node> customersSorted) {
+        for (Node customer : customersSorted)
         {
             int indexOfBestRoute = -1;
             int minimumEmptySpace = Integer.MAX_VALUE;
 
-            // identify the best fit route ignoring distance between customers
             for (int b = 0; b < routes.size(); b++)
             {
                 Route trialRoute = routes.get(b);
 
-                if ((Constants.truckMaxLoad - trialRoute.load) >= customer.demand && trialRoute.routeTotalTime <= Constants.truckMaximumAwayTime)
+                if ((Constants.truckMaxLoad - trialRoute.load) >= customer.demand)
                 {
                     double trialResidualSpace = Constants.truckMaxLoad - (trialRoute.load + customer.demand);
+                    double trialLeftTime = Constants.truckMaximumAwayTime - (trialRoute.routeTotalTime - distanceTimeMatrix[trialRoute.nodes.get(trialRoute.nodes.size() -2).ID][depot.ID] + distanceTimeMatrix[trialRoute.nodes.get(trialRoute.nodes.size() -2).ID][customer.ID] + customer.serviceTime +  distanceTimeMatrix[customer.ID][depot.ID]);
 
-                    if (trialResidualSpace < minimumEmptySpace)
+                    if (trialResidualSpace < minimumEmptySpace && trialLeftTime >= 0)
                     {
                         minimumEmptySpace = (int) trialResidualSpace;
                         indexOfBestRoute = b;
@@ -218,84 +180,236 @@ public class Main {
             if (indexOfBestRoute != -1)
             {
                 Route bestFitRoute = routes.get(indexOfBestRoute);
-                bestFitRoute.nodes.add(customer);
+                bestFitRoute.nodes.add(bestFitRoute.nodes.size() - 1,customer);
                 bestFitRoute.load = bestFitRoute.load + customer.demand;
-                bestFitRoute.routeTotalTime = bestFitRoute.nodes.size()*customer.serviceTime;
+                bestFitRoute.cost = bestFitRoute.cost - distanceMatrix[bestFitRoute.nodes.get(bestFitRoute.nodes.size() -3).ID][depot.ID] + distanceMatrix[bestFitRoute.nodes.get(bestFitRoute.nodes.size() -3).ID][customer.ID] + distanceMatrix[customer.ID][depot.ID];
+                bestFitRoute.routeTotalTime = bestFitRoute.routeTotalTime - distanceTimeMatrix[bestFitRoute.nodes.get(bestFitRoute.nodes.size() -3).ID][depot.ID] + distanceTimeMatrix[bestFitRoute.nodes.get(bestFitRoute.nodes.size() -3).ID][customer.ID] + customer.serviceTime + distanceTimeMatrix[customer.ID][depot.ID];
             }
             else
             {
                 Route newRoute = new Route();
                 routes.add(newRoute);
+                newRoute.nodes.add(depot);
+                newRoute.nodes.add(depot);
 
                 //Assign customer to this new truck
-                newRoute.nodes.add(customer);
+                newRoute.nodes.add(newRoute.nodes.size() - 1, customer);
                 newRoute.load = newRoute.load + customer.demand;
-                newRoute.routeTotalTime = newRoute.nodes.size()*customer.serviceTime;
+                newRoute.cost = distanceMatrix[depot.ID][customer.ID] + distanceMatrix[customer.ID][depot.ID];
+                newRoute.routeTotalTime = distanceTimeMatrix[depot.ID][customer.ID] + customer.serviceTime + distanceTimeMatrix[customer.ID][depot.ID];
             }
+        }
+
+//        // test routes
+//        for (Route route : routes)
+//            System.out.println(route);
+    }
+
+    // ---------
+    // Erwthma 3
+    // ---------
+
+    private static void Question3(Solution solution) {
+
+        LocalSearch(solution);
+        CleanSolution(bestSolutionThroughLocalSearch);
+        System.out.println(String.format("Question 3 - Local search algorithm total km cost: %.3f", bestSolutionThroughLocalSearch.cost));
+        System.out.println(String.format("Question 3 - Local search algorithm total routes: %d", bestSolutionThroughLocalSearch.routes.size()));
+
+//        // for test reasons
+//        System.out.println("LOCAL SEARCH ROUTES");
+//        for (Route route : bestSolutionThroughLocalSearch.routes)
+//        {
+//            System.out.println(route.nodes);
+//            System.out.println(route.routeTotalTime);
+//            System.out.println(route.load);
+//        }
+    }
+
+    private static void LocalSearch(Solution solution) {
+        bestSolutionThroughLocalSearch = cloneSolution(solution);
+
+        RelocationMove rm = new RelocationMove();
+        int repeatsTillLocalOptimumReached = 0;
+
+        while (true)
+        {
+            repeatsTillLocalOptimumReached++;
+            rm.moveCost = Double.MAX_VALUE;
+            FindBestRelocationMoveLocalSearch(rm, solution);
+
+            if (LocalOptimumHasBeenReachedLocalSearch(rm))
+            {
+                System.out.println("Local Search algorithm local optimum reached at: " + repeatsTillLocalOptimumReached + " repeats");
+                break;
+            }
+
+            //Apply move
+            ApplyRelocationMoveLocalSearch(rm, solution);
+
+            StoreBestSolutionLocalSearch(solution);
         }
     }
 
-    private static Route GetLastRoute(ArrayList<Route> routeList) {
-        if (routeList.isEmpty())
-            return null;
-        return routeList.get(routeList.size()-1);
-    }
-
-    private static void IdentifyBestInsertion_NN(CustomerInsertion bestInsertion, Route lastRoute) {
-        // The examined node is called candidate
-        for (Node candidate : customers)
+    private static void FindBestRelocationMoveLocalSearch(RelocationMove rm, Solution sol) {
+        ArrayList<Route> routes = sol.routes;
+        for (int originRouteIndex = 0; originRouteIndex < routes.size(); originRouteIndex++)
         {
-            // if this candidate has not been pushed in the solution
-            if (!candidate.isRouted)
+            Route rt1 = routes.get(originRouteIndex);
+            for (int targetRouteIndex = 0; targetRouteIndex < routes.size(); targetRouteIndex++)
             {
-                if (lastRoute.load + candidate.demand <= Route.capacity)
+                Route rt2 = routes.get(targetRouteIndex);
+
+                for (int originNodeIndex = 1; originNodeIndex < rt1.nodes.size() - 1; originNodeIndex++)
                 {
-                    ArrayList<Node> nodeSequence = lastRoute.nodes;
-                    Node lastCustomerInTheRoute = nodeSequence.get(nodeSequence.size() - 2);
-
-                    double trialCost = distanceMatrix[lastCustomerInTheRoute.ID][candidate.ID];
-                    double trialTimeCost = distanceTimeMatrix[lastCustomerInTheRoute.ID][candidate.ID] + candidate.serviceTime;
-                    double totalTimeForCandidate = lastRoute.routeTotalTime + distanceTimeMatrix[lastCustomerInTheRoute.ID][candidate.ID] + distanceTimeMatrix[candidate.ID][depot.ID] + candidate.serviceTime - distanceTimeMatrix[lastCustomerInTheRoute.ID][depot.ID];
-
-                    if (trialCost < bestInsertion.cost && totalTimeForCandidate < bestInsertion.timeCost)
+                    for (int targetNodeIndex = 0; targetNodeIndex < rt2.nodes.size() - 1; targetNodeIndex++)
                     {
-                        bestInsertion.customer = candidate;
-                        bestInsertion.insertionRoute = lastRoute;
-                        bestInsertion.cost = trialCost;
-                        bestInsertion.timeCost = trialTimeCost + candidate.serviceTime;
+                        //Why? No change for the route involved
+                        if (originRouteIndex == targetRouteIndex && (targetNodeIndex == originNodeIndex || targetNodeIndex == originNodeIndex - 1))
+                        {
+                            continue;
+                        }
+
+                        Node a = rt1.nodes.get(originNodeIndex - 1);
+                        Node b = rt1.nodes.get(originNodeIndex);
+                        Node c = rt1.nodes.get(originNodeIndex + 1);
+
+                        Node insPoint1 = rt2.nodes.get(targetNodeIndex);
+                        Node insPoint2 = rt2.nodes.get(targetNodeIndex + 1);
+
+                        //capacity constraints
+                        if (originRouteIndex != targetRouteIndex)
+                        {
+                            if (rt2.load + b.demand > rt2.capacity)
+                            {
+                                continue;
+                            }
+                        }
+
+                        double costAdded = distanceMatrix[a.ID][c.ID] + distanceMatrix[insPoint1.ID][b.ID] + distanceMatrix[b.ID][insPoint2.ID];
+                        double costRemoved = distanceMatrix[a.ID][b.ID] + distanceMatrix[b.ID][c.ID] + distanceMatrix[insPoint1.ID][insPoint2.ID];
+                        double moveCost = costAdded - costRemoved;
+
+                        double costChangeOriginRoute = distanceMatrix[a.ID][c.ID] - (distanceMatrix[a.ID][b.ID] + distanceMatrix[b.ID][c.ID]);
+                        double costChangeTargetRoute = distanceMatrix[insPoint1.ID][b.ID] + distanceMatrix[b.ID][insPoint2.ID] - distanceMatrix[insPoint1.ID][insPoint2.ID];
+                        double totalObjectiveChange = costChangeOriginRoute + costChangeTargetRoute;
+
+                        double moveTimeCost = 0;
+                        if (originRouteIndex == targetRouteIndex) {
+                            double costTimeAdded = distanceTimeMatrix[a.ID][c.ID] + distanceTimeMatrix[insPoint1.ID][b.ID] + distanceTimeMatrix[b.ID][insPoint2.ID];
+                            double costTimeRemoved = distanceTimeMatrix[a.ID][b.ID] + distanceTimeMatrix[b.ID][c.ID] + distanceTimeMatrix[insPoint1.ID][insPoint2.ID];
+                            moveTimeCost = costTimeAdded - costTimeRemoved;
+                        }
+                        if (originRouteIndex != targetRouteIndex) {
+                            double costTimeAddedRt2 = distanceTimeMatrix[insPoint1.ID][b.ID] + distanceTimeMatrix[b.ID][insPoint2.ID] + b.serviceTime;
+                            double costTimeRemovedRt2 = distanceTimeMatrix[insPoint1.ID][insPoint2.ID];
+                            moveTimeCost = costTimeAddedRt2 - costTimeRemovedRt2;
+                        }
+
+                        if (rt2.routeTotalTime + moveTimeCost > Constants.truckMaximumAwayTime)
+                            continue;
+
+                        StoreBestRelocationMoveLocalSearch(originRouteIndex, targetRouteIndex, originNodeIndex, targetNodeIndex, moveCost, rm);
                     }
                 }
             }
         }
     }
 
-    private static void ApplyCustomerInsertion(CustomerInsertion insertion, Solution solution) {
-        Node insertedCustomer = insertion.customer;
-        Route route = insertion.insertionRoute;
+    private static void StoreBestRelocationMoveLocalSearch(int originRouteIndex, int targetRouteIndex, int originNodeIndex, int targetNodeIndex, double moveCost, RelocationMove rm) {
+        if (moveCost < rm.moveCost)
+        {
+            rm.originNodePosition = originNodeIndex;
+            rm.targetNodePosition = targetNodeIndex;
+            rm.targetRoutePosition = targetRouteIndex;
+            rm.originRoutePosition = originRouteIndex;
 
-        route.nodes.add(route.nodes.size() - 1, insertedCustomer);
-
-        Node beforeInserted = route.nodes.get(route.nodes.size() - 3);
-
-        double costAdded = distanceMatrix[beforeInserted.ID][insertedCustomer.ID] + distanceMatrix[insertedCustomer.ID][depot.ID];
-        double costTimeAdded = distanceTimeMatrix[beforeInserted.ID][insertedCustomer.ID] + distanceTimeMatrix[insertedCustomer.ID][depot.ID] + insertedCustomer.serviceTime;
-        double costRemoved = distanceMatrix[beforeInserted.ID][depot.ID];
-        double costTimeRemoved = distanceTimeMatrix[beforeInserted.ID][depot.ID];
-
-        route.cost = route.cost + (costAdded - costRemoved);
-        route.routeTotalTime = route.routeTotalTime + (costTimeAdded - costTimeRemoved);
-        route.load = route.load + insertedCustomer.demand;
-        solution.cost = solution.cost + (costAdded - costRemoved);
-        solution.timeCost = solution.timeCost + (costTimeAdded- costTimeRemoved);
-
-        insertedCustomer.isRouted = true;
+            rm.moveCost = moveCost;
+        }
     }
 
-    private static void CreateAndPushAnEmptyRouteInTheSolution(Solution currentSolution) {
-        Route rt = new Route();
-        rt.nodes.add(depot);
-        rt.nodes.add(depot);
-        currentSolution.routes.add(rt);
+    private static boolean LocalOptimumHasBeenReachedLocalSearch(RelocationMove rm) {
+        if (rm.moveCost > -0.00001)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    private static void ApplyRelocationMoveLocalSearch(RelocationMove rm, Solution sol) {
+
+        if (rm.moveCost == Double.MAX_VALUE)
+            return;
+
+        Route originRoute = sol.routes.get(rm.originRoutePosition);
+        Route targetRoute = sol.routes.get(rm.targetRoutePosition);
+
+        Node B = originRoute.nodes.get(rm.originNodePosition);
+
+        if (originRoute == targetRoute)
+        {
+            originRoute.nodes.remove(rm.originNodePosition);
+            if (rm.originNodePosition < rm.targetNodePosition)
+            {
+                targetRoute.nodes.add(rm.targetNodePosition, B);
+            }
+            else
+            {
+                targetRoute.nodes.add(rm.targetNodePosition + 1, B);
+            }
+
+            originRoute.cost = originRoute.cost + rm.moveCost;
+        }
+        else
+        {
+            Node A = originRoute.nodes.get(rm.originNodePosition - 1);
+            Node C = originRoute.nodes.get(rm.originNodePosition + 1);
+
+            Node F = targetRoute.nodes.get(rm.targetNodePosition);
+            Node G = targetRoute.nodes.get(rm.targetNodePosition + 1);
+
+            double costChangeOrigin = distanceMatrix[A.ID][C.ID] - distanceMatrix[A.ID][B.ID] - distanceMatrix[B.ID][C.ID];
+            double costChangeTarget = distanceMatrix[F.ID][B.ID] + distanceMatrix[B.ID][G.ID] - distanceMatrix[F.ID][G.ID];
+
+            originRoute.load = originRoute.load - B.demand;
+            targetRoute.load = targetRoute.load + B.demand;
+
+            originRoute.cost = originRoute.cost + costChangeOrigin;
+            targetRoute.cost = targetRoute.cost + costChangeTarget;
+
+            originRoute.nodes.remove(rm.originNodePosition);
+            targetRoute.nodes.add(rm.targetNodePosition + 1, B);
+
+            double newMoveCost = costChangeOrigin + costChangeTarget;
+        }
+        sol.cost = sol.cost + rm.moveCost;
+        originRoute.routeTotalTime = Route.calculateRouteTime(originRoute);
+        targetRoute.routeTotalTime = Route.calculateRouteTime(targetRoute);
+    }
+
+    private static void StoreBestSolutionLocalSearch(Solution sol) {
+        if (sol.cost < bestSolutionThroughLocalSearch.cost)
+            bestSolutionThroughLocalSearch = cloneSolution(sol);
+    }
+
+    // ---------
+    // Erwthma 4
+    // ---------
+
+    private static void Question4(Solution solution) {
+        TabuSearch(solution);
+        CleanSolution(bestSolutionThroughTabuSearch);
+        System.out.println(String.format("Question 4 - Tabu search algorithm total km cost: %.3f", bestSolutionThroughTabuSearch.cost));
+        System.out.println(String.format("Question 4 - Tabu search algorithm total routes: %d", bestSolutionThroughTabuSearch.routes.size()));
+
+//        // for test reasons
+//        System.out.println("TABU SEARCH ROUTES");
+//        for (Route route : bestSolutionThroughTabuSearch.routes)
+//        {
+//            System.out.println(route.nodes);
+//            System.out.println(route.routeTotalTime);
+//            System.out.println(route.load);
+//        }
     }
 
     private static void TabuSearch(Solution sol) {
@@ -444,7 +558,6 @@ public class Main {
             rm.originRoutePosition = originRouteIndex;
 
             rm.moveCost = moveCost;
-            rm.moveTimeCost = moveTimeCost;
         }
     }
 
@@ -593,7 +706,6 @@ public class Main {
                 targetRoute.nodes.add(rm.targetNodePosition + 1, B);
 
             originRoute.cost = originRoute.cost + rm.moveCost;
-            originRoute.routeTotalTime = originRoute.routeTotalTime + rm.moveTimeCost;
         }
         else
         {
@@ -621,6 +733,8 @@ public class Main {
         }
 
         sol.cost = sol.cost + rm.moveCost;
+        originRoute.routeTotalTime = Route.calculateRouteTime(originRoute);
+        targetRoute.routeTotalTime = Route.calculateRouteTime(targetRoute);
     }
 
     private static void SetTabuIterator(Node n, int iterator) {
@@ -719,5 +833,12 @@ public class Main {
     private static void StoreBestSolution(Solution sol) {
         if (sol.cost < bestSolutionThroughTabuSearch.cost)
             bestSolutionThroughTabuSearch = cloneSolution(sol);
+    }
+
+    private static void CleanSolution(Solution sol) {
+        for (int i = 0; i < sol.routes.size(); i++) {
+            if (sol.routes.get(i).nodes.size() == 2)
+                sol.routes.remove(sol.routes.get(i));
+        }
     }
 }

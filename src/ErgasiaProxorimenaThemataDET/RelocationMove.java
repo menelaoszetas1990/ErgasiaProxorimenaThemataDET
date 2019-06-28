@@ -9,5 +9,4 @@ class RelocationMove {
     int targetNodePosition;
 
     double moveCost;
-    double moveTimeCost;
 }
